@@ -81,3 +81,50 @@ The data memory supports byte, halfword, and word accesses. The lower address bi
 For synthesis and implementation, the instruction memory should always be initialized using a valid `program.mem` file. The file should contain at least a small sequence of valid instructions, with all remaining unused locations filled with `NOP` instructions (`ADDI x0, x0, 0`).
 
 If the instruction memory is left uninitialized or effectively constant, Vivado may determine that large parts of the processor have no observable effect and optimize them away during synthesis. This can result in missing modules in the implemented netlist, unrealistically high timing slack, and utilization figures that no longer represent the full processor.
+
+## FPGA Implementation
+Results as on 23/09/26
+
+The core was synthesized, placed, and routed using **Vivado 2026.1** for a **Xilinx Artix-7 XC7A100T-CSG324-1** device. The design is constrained to a **100 MHz** system clock with a 10 ns period and successfully meets all internal setup, hold, and pulse-width timing requirements after routing.
+
+### Resource Utilization
+
+| Resource | Used | Available | Utilization |
+|---|---:|---:|---:|
+| Slice LUTs | 2351 | 63400 | 3.71% |
+| LUTs as Logic | 1839 | 63400 | 2.90% |
+| LUTs as Distributed RAM | 512 | 19000 | 2.69% |
+| Slice Registers | 1096 | 126800 | 0.86% |
+| Slices | 787 | 15850 | 4.97% |
+| F7 Muxes | 283 | 31700 | 0.89% |
+| F8 Muxes | 128 | 15850 | 0.81% |
+| Block RAM | 0 | 135 | 0.00% |
+| DSPs | 0 | 240 | 0.00% |
+| BUFGCTRL | 1 | 32 | 3.13% |
+
+The processor intentionally uses **distributed LUTRAM** for its memories, with 512 LUTs inferred as distributed RAM. No Block RAM or DSP resources are used; the RV32M multiply/divide unit is implemented entirely using FPGA logic and registers.
+
+### Timing
+
+| Metric | Result |
+|---|---:|
+| Clock Frequency | **100 MHz** |
+| Clock Period | **10.000 ns** |
+| Worst Setup Slack (WNS) | **+0.382 ns** |
+| Total Setup Violation (TNS) | **0.000 ns** |
+| Worst Hold Slack (WHS) | **+0.052 ns** |
+| Total Hold Violation (THS) | **0.000 ns** |
+| Worst Pulse Width Slack (WPWS) | **+3.750 ns** |
+| Failing Setup Endpoints | **0** |
+| Failing Hold Endpoints | **0** |
+
+The current critical setup path begins in the **MEM/WB stage** and propagates through the forwarding/control-flow logic to the PC update path. The worst data-path delay is approximately **9.57 ns**, of which roughly **76% is routing delay** and **24% is logic delay**, indicating that placement and routing dominate the current timing limit.
+
+The worst hold path is inside the RV32M unit and has **+0.052 ns** slack. All internal timing constraints are met. The external `raw_rst` input is intentionally marked as a false path only up to the first reset synchronizer flip-flop, while the synchronizer stages themselves remain normally timed.
+
+### Implementation Notes
+
+- The design uses **distributed RAM instead of BRAM** to preserve the asynchronous memory-read behavior used by the current pipeline.
+- The RV32M unit uses **0 DSP blocks** and is implemented entirely in LUT/register logic.
+- The asynchronous external reset is passed through a **two-flop synchronizer** before entering the processor.
+- Instruction memory should be initialized with a valid `program.mem` before synthesis and implementation. Leaving the instruction memory uninitialized can allow Vivado to optimize away large portions of the processor, resulting in misleading utilization and timing results.
