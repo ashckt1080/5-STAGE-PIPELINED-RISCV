@@ -62,3 +62,18 @@ A total of 45 instructions.
 
 All eight instructions from the RISC-V **M extension** are supported:
 RV32M operations are executed using a shared **iterative multi-cycle execution unit** in the EX stage rather than single-cycle combinational multipliers or dividers.
+
+## Memory System
+
+The core uses separate **instruction and data memories**. Instruction fetches and data-memory reads are asynchronous to match the current 5-stage datapath, while data-memory writes occur synchronously on the clock edge. The memories are intentionally inferred as **distributed LUTRAM** on the FPGA rather than Block RAM.
+
+The data memory is organized as **1024 × 32-bit words** and supports byte, halfword, and word accesses. The lower address bits select the required byte or halfword within a word, with sign or zero extension applied for load instructions.
+
+| Operation | Supported Instructions |
+|---|---|
+| Byte Load | `LB`, `LBU` |
+| Halfword Load | `LH`, `LHU` |
+| Word Load | `LW` |
+| Byte Store | `SB` |
+| Halfword Store | `SH` |
+| Word Store | `SW` |
