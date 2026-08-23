@@ -65,9 +65,9 @@ RV32M operations are executed using a shared **iterative multi-cycle execution u
 
 ## Memory System
 
-The core uses separate **instruction and data memories**. Instruction fetches and data-memory reads are asynchronous to match the current 5-stage datapath, while data-memory writes occur synchronously on the clock edge. The memories are intentionally inferred as **distributed LUTRAM** on the FPGA rather than Block RAM.
+The core uses separate **instruction and data memories**. Each organized as **1024 × 32-bit words** (4kB). Instruction fetches and data-memory reads are asynchronous to match the current 5-stage datapath, while data-memory writes occur synchronously on the clock edge. The memories are intentionally inferred as **distributed LUTRAM** on the FPGA rather than Block RAM.
 
-The data memory is organized as **1024 × 32-bit words** and supports byte, halfword, and word accesses. The lower address bits select the required byte or halfword within a word, with sign or zero extension applied for load instructions.
+The data memory supports byte, halfword, and word accesses. The lower address bits select the required byte or halfword within a word, with sign or zero extension applied for load instructions.
 
 | Operation | Supported Instructions |
 |---|---|
@@ -77,3 +77,7 @@ The data memory is organized as **1024 × 32-bit words** and supports byte, half
 | Byte Store | `SB` |
 | Halfword Store | `SH` |
 | Word Store | `SW` |
+
+For synthesis and implementation, the instruction memory should always be initialized using a valid `program.mem` file. The file should contain at least a small sequence of valid instructions, with all remaining unused locations filled with `NOP` instructions (`ADDI x0, x0, 0`).
+
+If the instruction memory is left uninitialized or effectively constant, Vivado may determine that large parts of the processor have no observable effect and optimize them away during synthesis. This can result in missing modules in the implemented netlist, unrealistically high timing slack, and utilization figures that no longer represent the full processor.
