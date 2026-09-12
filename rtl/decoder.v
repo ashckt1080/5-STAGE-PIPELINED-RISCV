@@ -7,9 +7,9 @@ module decoder(
     output reg mem_read,
     output reg branch,
     output reg jump,
-    output reg [1:0] ALU_A_src,
-    output reg [1:0] ALU_B_src,
-    output reg [1:0] WB_src,
+    output reg [1:0] alu_a_src,
+    output reg [1:0] alu_b_src,
+    output reg [1:0] wb_src,
     output reg opcode_invalid,
     output reg rs1_used,
     output reg rs2_used
@@ -26,9 +26,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b00;//rs1
-            ALU_B_src = 2'b00;//rs2
-            WB_src = 2'b00;//ALU
+            alu_a_src = 2'b00;//rs1
+            alu_b_src = 2'b00;//rs2
+            wb_src = 2'b00;//ALU
             opcode_invalid = 1'b0;
             rs1_used = 1'b1;
             rs2_used = 1'b1;
@@ -41,9 +41,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b00;//rs1
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b00;//ALU
+            alu_a_src = 2'b00;//rs1
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b00;//ALU
             opcode_invalid = 1'b0;
             rs1_used = 1'b1;
             rs2_used = 1'b0;
@@ -56,9 +56,9 @@ module decoder(
             mem_read = 1'b1;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b00;//rs1
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b01;//data memory
+            alu_a_src = 2'b00;//rs1
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b01;//data memory
             opcode_invalid = 1'b0;
             rs1_used = 1'b1;
             rs2_used = 1'b0;
@@ -71,9 +71,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b00;//rs1
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b00;//unused
+            alu_a_src = 2'b00;//rs1
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b00;//unused
             opcode_invalid = 1'b0;
             rs1_used = 1'b1;
             rs2_used = 1'b1;
@@ -86,9 +86,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b1;
             jump = 1'b0;
-            ALU_A_src = 2'b00;//rs1
-            ALU_B_src = 2'b00;//rs2
-            WB_src = 2'b00;//unused
+            alu_a_src = 2'b00;//rs1
+            alu_b_src = 2'b00;//rs2
+            wb_src = 2'b00;//unused
             opcode_invalid = 1'b0;
             rs1_used = 1'b1;
             rs2_used = 1'b1;
@@ -101,9 +101,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b1;
-            ALU_A_src = 2'b01;//PC
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b10;//PC+4
+            alu_a_src = 2'b01;//PC
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b10;//PC+4
             opcode_invalid = 1'b0;
             rs1_used = 1'b0;
             rs2_used = 1'b0;
@@ -116,9 +116,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b1;
-            ALU_A_src = 2'b00;//rs1
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b10;//PC+4
+            alu_a_src = 2'b00;//rs1
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b10;//PC+4
             opcode_invalid = 1'b0;
             rs1_used = 1'b1;
             rs2_used = 1'b0;
@@ -131,9 +131,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b10;//zero
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b00;//ALU
+            alu_a_src = 2'b10;//zero
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b00;//ALU
             opcode_invalid = 1'b0;
             rs1_used = 1'b0;
             rs2_used = 1'b0;
@@ -146,9 +146,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b01;//PC
-            ALU_B_src = 2'b01;//immediate
-            WB_src = 2'b00;//ALU
+            alu_a_src = 2'b01;//PC
+            alu_b_src = 2'b01;//immediate
+            wb_src = 2'b00;//ALU
             opcode_invalid = 1'b0;
             rs1_used = 1'b0;
             rs2_used = 1'b0;
@@ -160,9 +160,9 @@ module decoder(
             mem_read = 1'b0;
             branch = 1'b0;
             jump = 1'b0;
-            ALU_A_src = 2'b00;
-            ALU_B_src = 2'b00;
-            WB_src = 2'b00;
+            alu_a_src = 2'b00;
+            alu_b_src = 2'b00;
+            wb_src = 2'b00;
             opcode_invalid = 1'b1;
             rs1_used = 1'b0;
             rs2_used = 1'b0;

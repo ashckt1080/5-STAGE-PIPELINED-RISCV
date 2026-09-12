@@ -8,10 +8,10 @@ module jump_controller(
     input [6:0] opcode,
     output reg [31:0] jump_target,
     output jump_taken,
-    input id_ex_valid_out
+    input valid
     );
     
-    assign jump_taken = jump && id_ex_valid_out;
+    assign jump_taken = jump && valid;
     
     localparam JAL = 7'b1101111;
     localparam JALR = 7'b1100111;

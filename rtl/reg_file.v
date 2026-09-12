@@ -10,7 +10,7 @@ module reg_file(
     input [31:0] wb_data,
     output reg [31:0] rs1_data,
     output reg [31:0] rs2_data,
-    input mem_wb_valid_out
+    input valid
     );
     
     reg [31:0] memory [0:31];
@@ -24,7 +24,7 @@ module reg_file(
             end
         end
         
-        else if (write_en && mem_wb_valid_out && (rd_addr != 5'b0)) begin
+        else if (write_en && valid && (rd_addr != 5'b0)) begin
             memory[rd_addr] <= wb_data;
         end
      
@@ -34,7 +34,7 @@ module reg_file(
         if(rs1_addr == 5'b0) begin
             rs1_data = 32'b0;
         end
-        else if(write_en && mem_wb_valid_out && (rd_addr != 5'b0) && (rd_addr == rs1_addr)) begin
+        else if(write_en && valid && (rd_addr != 5'b0) && (rd_addr == rs1_addr)) begin
             rs1_data = wb_data;
         end
         else begin
@@ -46,7 +46,7 @@ module reg_file(
         if(rs2_addr == 5'b0) begin
             rs2_data = 32'b0;
         end
-        else if(write_en && mem_wb_valid_out && (rd_addr != 5'b0) && (rd_addr == rs2_addr)) begin
+        else if(write_en && valid && (rd_addr != 5'b0) && (rd_addr == rs2_addr)) begin
             rs2_data = wb_data;
         end
         else begin

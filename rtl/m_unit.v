@@ -4,16 +4,16 @@ module m_unit(
     input clk,
     input rst,
     input start,
-    input [31:0] A_in,
-    input [31:0] B_in,
+    input [31:0] a_in,
+    input [31:0] b_in,
     input [2:0] funct3,
     output reg [31:0] result,
     output reg done,
     output reg busy
     );
         
-    reg [31:0] A;
-    reg [31:0] B;
+    reg [31:0] a;
+    reg [31:0] b;
     reg [2:0] opcode;
         
     reg [31:0] multiplicand;
@@ -21,36 +21,36 @@ module m_unit(
     reg [5:0] counter;
     reg init_pending;
         
-    wire A_is_signed = (opcode == 3'b001 || opcode == 3'b010 || opcode == 3'b100 || opcode == 3'b110);
-    wire B_is_signed = (opcode == 3'b001 || opcode == 3'b100 || opcode == 3'b110);
+    wire a_is_signed = (opcode == 3'b001 || opcode == 3'b010 || opcode == 3'b100 || opcode == 3'b110);
+    wire b_is_signed = (opcode == 3'b001 || opcode == 3'b100 || opcode == 3'b110);
         
-    wire A_sign = A[31] & A_is_signed;
-    wire B_sign = B[31] & B_is_signed;
-    wire P_sign = A_sign ^ B_sign; 
+    wire a_sign = a[31] & a_is_signed;
+    wire b_sign = b[31] & b_is_signed;
+    wire p_sign = a_sign ^ b_sign;
         
-    wire [31:0] A_mag = (A_sign ? ~A + 32'b1 : A);
-    wire [31:0] B_mag = (B_sign ? ~B + 32'b1 : B);
+    wire [31:0] a_mag = (a_sign ? ~a + 32'b1 : a);
+    wire [31:0] b_mag = (b_sign ? ~b + 32'b1 : b);
         
     wire [32:0] sum = {1'b0, accumulator[63:32]} + {1'b0, multiplicand};
     wire [32:0] diff = {1'b0, accumulator [62:31]} - {1'b0, multiplicand};
         
-    wire [63:0] product = (P_sign ? ~accumulator + 64'b1 : accumulator);
+    wire [63:0] product = (p_sign ? ~accumulator + 64'b1 : accumulator);
         
     wire [31:0] raw_quotient = accumulator[31:0];
-    wire [31:0] quotient = P_sign ? (~raw_quotient + 32'd1) : raw_quotient;
+    wire [31:0] quotient = p_sign ? (~raw_quotient + 32'd1) : raw_quotient;
     wire [31:0] raw_remainder = accumulator[63:32];
-    wire [31:0] remainder = A_sign ? (~raw_remainder + 32'd1) : raw_remainder;
+    wire [31:0] remainder = a_sign ? (~raw_remainder + 32'd1) : raw_remainder;
         
     wire is_div = opcode[2];
-    wire is_div_zero = is_div & (B == 0);
-    wire is_sign_overflow = (opcode == 3'b100 || opcode == 3'b110) & (A == 32'h80000000) & (B == 32'hFFFFFFFF);
+    wire is_div_zero = is_div & (b == 0);
+    wire is_sign_overflow = (opcode == 3'b100 || opcode == 3'b110) & (a == 32'h80000000) & (b == 32'hFFFFFFFF);
         
     always @ (posedge clk) begin
         
         if(rst) begin
         
-            A <= 32'b0;
-            B <= 32'b0;
+            a <= 32'b0;
+            b <= 32'b0;
             opcode <= 3'b0;
             
             multiplicand <= 32'b0;
@@ -69,8 +69,8 @@ module m_unit(
             done <= 1'b0;
         
             if(start && !busy) begin
-                A <= A_in;
-                B <= B_in;
+                a <= a_in;
+                b <= b_in;
                 opcode <= funct3;
                 counter <= 6'b0;
                 busy <= 1'b1;
@@ -86,7 +86,7 @@ module m_unit(
                     if(is_div_zero) begin
                         done <= 1'b1;
                         busy <= 1'b0;
-                        result <= (opcode[1] ? A : 32'hFFFFFFFF);
+                        result <= (opcode[1] ? a : 32'hFFFFFFFF);
                     end
             
                     else if(is_sign_overflow) begin
@@ -96,8 +96,8 @@ module m_unit(
                     end
             
                     else begin        
-                        multiplicand <= (is_div ? B_mag : A_mag);
-                        accumulator[31:0] <= (is_div ? A_mag : B_mag);
+                        multiplicand <= (is_div ? b_mag : a_mag);
+                        accumulator[31:0] <= (is_div ? a_mag : b_mag);
                         accumulator[63:32] <= 32'b0;      
                     end   
                 end

@@ -9,7 +9,7 @@ module branch_controller(
     input [31:0] forwarded_rs2,
     output [31:0] branch_target,
     output branch_taken,
-    input id_ex_valid_out
+    input valid
     );
     
     reg condition;
@@ -35,7 +35,7 @@ module branch_controller(
     
     end
     
-    assign branch_taken = branch && condition && id_ex_valid_out ;
+    assign branch_taken = branch && condition && valid;
     assign branch_target = pc + immediate;
     
 endmodule

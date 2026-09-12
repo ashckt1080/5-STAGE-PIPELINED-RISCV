@@ -14,7 +14,7 @@ module ex_mem_register(
     input reg_write_in,
     input mem_read_in,
     input mem_write_in,
-    input [1:0] WB_src_in,
+    input [1:0] wb_src_in,
     output reg valid_out,
     output reg [31:0] pc_plus4_out,
     output reg [31:0] alu_result_out,
@@ -25,7 +25,7 @@ module ex_mem_register(
     output reg reg_write_out,
     output reg mem_read_out,
     output reg mem_write_out,
-    output reg [1:0] WB_src_out
+    output reg [1:0] wb_src_out
 );
 
     always @(posedge clk) begin
@@ -40,7 +40,7 @@ module ex_mem_register(
             reg_write_out <= 1'b0;
             mem_read_out <= 1'b0;
             mem_write_out <= 1'b0;
-            WB_src_out <= 2'b0;
+            wb_src_out <= 2'b0;
         end
         else if(ex_mem_enable) begin
             valid_out <= valid_in;
@@ -53,7 +53,7 @@ module ex_mem_register(
             reg_write_out <= reg_write_in;
             mem_read_out <= mem_read_in;
             mem_write_out <= mem_write_in;
-            WB_src_out <= WB_src_in;
+            wb_src_out <= wb_src_in;
         end
     end
 

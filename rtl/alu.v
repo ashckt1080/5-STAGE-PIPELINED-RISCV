@@ -1,12 +1,12 @@
 `timescale 1ns / 1ps
 
 module alu (
-    input [31:0] A,
-    input [31:0] B,
+    input [31:0] a,
+    input [31:0] b,
     input [3:0] opcode,
 
     output reg [31:0] result,
-    output wire Z
+    output wire z
 );
 
     localparam [3:0] ALU_ADD = 4'b0000;
@@ -23,21 +23,21 @@ module alu (
     always @(*) begin
         case (opcode)
 
-            ALU_ADD : result = A + B;
-            ALU_SUB : result = A - B;
-            ALU_OR : result = A | B;
-            ALU_AND : result = A & B;
-            ALU_XOR : result = A ^ B;
-            ALU_SLL : result = A << B[4:0];
-            ALU_SRL : result = A >> B[4:0];
-            ALU_SRA : result = $signed(A) >>> B[4:0];
-            ALU_SLTU : result = (A < B) ? 32'd1 : 32'd0;
-            ALU_SLT : result = ($signed(A) < $signed(B)) ? 32'd1 : 32'd0;
+            ALU_ADD : result = a + b;
+            ALU_SUB : result = a - b;
+            ALU_OR : result = a | b;
+            ALU_AND : result = a & b;
+            ALU_XOR : result = a ^ b;
+            ALU_SLL : result = a << b[4:0];
+            ALU_SRL : result = a >> b[4:0];
+            ALU_SRA : result = $signed(a) >>> b[4:0];
+            ALU_SLTU : result = (a < b) ? 32'd1 : 32'd0;
+            ALU_SLT : result = ($signed(a) < $signed(b)) ? 32'd1 : 32'd0;
 
             default : result = 32'd0;
         endcase
     end
 
-    assign Z = ~|result;
+    assign z = ~|result;
 
 endmodule

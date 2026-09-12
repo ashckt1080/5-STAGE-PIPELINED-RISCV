@@ -21,9 +21,10 @@ module id_ex_register(
     input mem_read_in,
     input branch_in,
     input jump_in,
-    input [1:0] ALU_A_src_in,
-    input [1:0] ALU_B_src_in,
-    input [1:0] WB_src_in,
+    input [1:0] alu_a_src_in,
+    input [1:0] alu_b_src_in,
+    input [1:0] wb_src_in,
+    input spec_taken_in,
     output reg valid_out,
     output reg [31:0] pc_out,
     output reg [31:0] pc_plus4_out,
@@ -42,9 +43,10 @@ module id_ex_register(
     output reg mem_read_out,
     output reg branch_out,
     output reg jump_out,
-    output reg [1:0] ALU_A_src_out,
-    output reg [1:0] ALU_B_src_out,
-    output reg [1:0] WB_src_out
+    output reg [1:0] alu_a_src_out,
+    output reg [1:0] alu_b_src_out,
+    output reg [1:0] wb_src_out,
+    output reg spec_taken_out
 );
 
     always @(posedge clk) begin
@@ -67,9 +69,10 @@ module id_ex_register(
         mem_read_out <= 1'b0;
         branch_out <= 1'b0;
         jump_out <= 1'b0;
-        ALU_A_src_out <= 2'b0;
-        ALU_B_src_out <= 2'b0;
-        WB_src_out <= 2'b0;
+        alu_a_src_out <= 2'b0;
+        alu_b_src_out <= 2'b0;
+        wb_src_out <= 2'b0;
+        spec_taken_out <= 1'b0;
     end
 
     else if(id_ex_enable) begin
@@ -90,9 +93,10 @@ module id_ex_register(
         mem_read_out <= mem_read_in;
         branch_out <= branch_in;
         jump_out <= jump_in;
-        ALU_A_src_out <= ALU_A_src_in;
-        ALU_B_src_out <= ALU_B_src_in;
-        WB_src_out <= WB_src_in;
+        alu_a_src_out <= alu_a_src_in;
+        alu_b_src_out <= alu_b_src_in;
+        wb_src_out <= wb_src_in;
+        spec_taken_out <= spec_taken_in;
     end
     
     if (rst) begin

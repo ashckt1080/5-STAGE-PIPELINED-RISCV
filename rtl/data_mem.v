@@ -8,7 +8,7 @@ module data_mem(
     input [31:0] alu_addr_in,
     input [31:0] data_in,
     input [2:0] funct3,
-    input ex_mem_valid_out,
+    input valid,
     output reg [31:0] data_out
     );
 
@@ -46,37 +46,37 @@ module data_mem(
         case(funct3)
             LB : begin
                 case(byte_index)
-                    2'b00 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {{24{memory[alu_addr_in[11:2]][7]}},memory[alu_addr_in[11:2]][7:0]} : 32'b0;
-                    2'b01 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {{24{memory[alu_addr_in[11:2]][15]}},memory[alu_addr_in[11:2]][15:8]} : 32'b0;
-                    2'b10 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {{24{memory[alu_addr_in[11:2]][23]}},memory[alu_addr_in[11:2]][23:16]} : 32'b0;
-                    2'b11 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {{24{memory[alu_addr_in[11:2]][31]}},memory[alu_addr_in[11:2]][31:24]} : 32'b0;
+                    2'b00 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][7]}},memory[alu_addr_in[11:2]][7:0]} : 32'b0;
+                    2'b01 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][15]}},memory[alu_addr_in[11:2]][15:8]} : 32'b0;
+                    2'b10 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][23]}},memory[alu_addr_in[11:2]][23:16]} : 32'b0;
+                    2'b11 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][31]}},memory[alu_addr_in[11:2]][31:24]} : 32'b0;
                 endcase
             end
 
             LBU : begin
                 case(byte_index)
-                    2'b00 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {24'b0,memory[alu_addr_in[11:2]][7:0]} : 32'b0;
-                    2'b01 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {24'b0,memory[alu_addr_in[11:2]][15:8]} : 32'b0;
-                    2'b10 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {24'b0,memory[alu_addr_in[11:2]][23:16]} : 32'b0;
-                    2'b11 : data_out = (byte_valid && mem_read && ex_mem_valid_out) ? {24'b0,memory[alu_addr_in[11:2]][31:24]} : 32'b0;
+                    2'b00 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][7:0]} : 32'b0;
+                    2'b01 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][15:8]} : 32'b0;
+                    2'b10 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][23:16]} : 32'b0;
+                    2'b11 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][31:24]} : 32'b0;
                 endcase
             end
 
             LH : begin
                 case(half_word_index)
-                    1'b0 : data_out = (half_word_valid && mem_read && ex_mem_valid_out) ? {{16{memory[alu_addr_in[11:2]][15]}},memory[alu_addr_in[11:2]][15:0]} : 32'b0;
-                    1'b1 : data_out = (half_word_valid && mem_read && ex_mem_valid_out) ? {{16{memory[alu_addr_in[11:2]][31]}},memory[alu_addr_in[11:2]][31:16]} : 32'b0;
+                    1'b0 : data_out = (half_word_valid && mem_read && valid) ? {{16{memory[alu_addr_in[11:2]][15]}},memory[alu_addr_in[11:2]][15:0]} : 32'b0;
+                    1'b1 : data_out = (half_word_valid && mem_read && valid) ? {{16{memory[alu_addr_in[11:2]][31]}},memory[alu_addr_in[11:2]][31:16]} : 32'b0;
                 endcase
             end
 
             LHU : begin
                 case(half_word_index)
-                    1'b0 : data_out = (half_word_valid && mem_read && ex_mem_valid_out) ? {16'b0,memory[alu_addr_in[11:2]][15:0]} : 32'b0;
-                    1'b1 : data_out = (half_word_valid && mem_read && ex_mem_valid_out) ? {16'b0,memory[alu_addr_in[11:2]][31:16]} : 32'b0;
+                    1'b0 : data_out = (half_word_valid && mem_read && valid) ? {16'b0,memory[alu_addr_in[11:2]][15:0]} : 32'b0;
+                    1'b1 : data_out = (half_word_valid && mem_read && valid) ? {16'b0,memory[alu_addr_in[11:2]][31:16]} : 32'b0;
                 endcase
             end
 
-            LW : data_out = (word_valid && mem_read && ex_mem_valid_out) ? memory[alu_addr_in[11:2]] : 32'b0;
+            LW : data_out = (word_valid && mem_read && valid) ? memory[alu_addr_in[11:2]] : 32'b0;
 
             default : data_out = 32'b0;
         endcase
@@ -84,7 +84,7 @@ module data_mem(
 
     always @(posedge clk) begin
     
-        if(mem_write && ex_mem_valid_out) begin
+        if(mem_write && valid) begin
 
             case(funct3)
                 SB : begin

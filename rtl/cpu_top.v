@@ -12,457 +12,477 @@ module cpu_top(
                             .raw_rst(raw_rst),
                             .rst(rst));
     
-    //if signals
-    wire if_pc_enable;
-    wire [31:0] if_pc_next;
-    wire [31:0] if_pc;
-    wire [31:0] if_pc_plus4;
-    wire [31:0] if_instr;
-    wire if_id_valid_in;
-    wire if_fetch_valid;
-    wire if_id_flush;
-    wire if_id_enable;
+    //IF signals
+    wire IF_pc_enable;
+    wire [31:0] IF_pc_next;
+    wire [31:0] IF_pc;
+    wire [31:0] IF_pc_plus4;
+    wire [31:0] IF_instr;
+    wire IF_fetch_valid;
+    wire IF_ID_flush;
+    wire IF_ID_enable;
+    wire IF_pred_taken;
+    wire [31:0] IF_pred_target;
+    wire IF_pred_target_aligned;
+    wire IF_pred_redirect;
+    wire IF_spec_taken;
     
-    //id signals
-    wire [31:0] id_pc;
-    wire [31:0] id_pc_plus4;
-    wire [31:0] id_instr;
-    wire if_id_valid_out;
-    wire [6:0] id_opcode;
-    wire [4:0] id_rd_addr;
-    wire [4:0] id_rs1_addr;
-    wire [4:0] id_rs2_addr;
-    wire [2:0] id_funct3;
-    wire [6:0] id_funct7;
-    wire id_reg_write;
-    wire id_mem_write;
-    wire id_mem_read;
-    wire id_branch;
-    wire id_jump;
-    wire [1:0] id_ALU_A_src;
-    wire [1:0] id_ALU_B_src;
-    wire [1:0] id_WB_src;
-    wire id_opcode_invalid;
-    wire [31:0] id_immediate;
-    wire [3:0] id_alu_op;
-    wire [31:0] id_rs1_data;
-    wire [31:0] id_rs2_data;
-    wire id_ex_enable;
-    wire id_ex_flush;
-    wire id_rs1_used;
-    wire id_rs2_used;
+    assign IF_pred_target_aligned = (IF_pred_target[1:0] == 2'b00);
+    assign IF_pred_redirect = IF_fetch_valid && IF_pred_taken && IF_pred_target_aligned;
+    assign IF_spec_taken = IF_pred_redirect;
+    
+    //ID signals
+    wire [31:0] ID_pc;
+    wire [31:0] ID_pc_plus4;
+    wire [31:0] ID_instr;
+    wire ID_valid;
+    wire [6:0] ID_opcode;
+    wire [4:0] ID_rd_addr;
+    wire [4:0] ID_rs1_addr;
+    wire [4:0] ID_rs2_addr;
+    wire [2:0] ID_funct3;
+    wire [6:0] ID_funct7;
+    wire ID_reg_write;
+    wire ID_mem_write;
+    wire ID_mem_read;
+    wire ID_branch;
+    wire ID_jump;
+    wire [1:0] ID_alu_a_src;
+    wire [1:0] ID_alu_b_src;
+    wire [1:0] ID_wb_src;
+    wire ID_opcode_invalid;
+    wire [31:0] ID_immediate;
+    wire [3:0] ID_alu_op;
+    wire [31:0] ID_rs1_data;
+    wire [31:0] ID_rs2_data;
+    wire ID_EX_enable;
+    wire ID_EX_flush;
+    wire ID_rs1_used;
+    wire ID_rs2_used;
+    wire ID_spec_taken;
      
-    //ex signals
-    wire [31:0] ex_branch_target;
-    wire [31:0] ex_jump_target;
-    wire ex_branch_taken;
-    wire ex_jump_taken;
-    wire [31:0] ex_pc;
-    wire [31:0] ex_pc_plus4;
-    wire [6:0] ex_opcode;
-    wire [4:0] ex_rd_addr;
-    wire [4:0] ex_rs1_addr;
-    wire [4:0] ex_rs2_addr;
-    wire [2:0] ex_funct3;
-    wire [6:0] ex_funct7;
-    wire ex_reg_write;
-    wire ex_mem_write;
-    wire ex_mem_read;
-    wire ex_branch;
-    wire ex_jump;
-    wire [1:0] ex_ALU_A_src;
-    wire [1:0] ex_ALU_B_src;
-    wire [1:0] ex_WB_src;
-    wire [31:0] ex_immediate;
-    wire [31:0] ex_rs1_data;
-    wire [31:0] ex_rs2_data;
-    wire [3:0] ex_alu_op; 
-    wire [31:0] ex_ALU_A_in;
-    wire [31:0] ex_ALU_B_in;
-    wire [31:0] ex_ALU_out;
-    wire ex_Z;
-    wire ex_mem_enable;
-    wire ex_mem_valid_in;
-    wire ex_mem_valid_out;
-    wire id_ex_valid_out;
-    wire id_ex_valid_in;
+    //EX signals
+    wire [31:0] EX_branch_target;
+    wire [31:0] EX_jump_target;
+    wire EX_branch_taken;
+    wire EX_jump_taken;
+    wire [31:0] EX_pc;
+    wire [31:0] EX_pc_plus4;
+    wire [6:0] EX_opcode;
+    wire [4:0] EX_rd_addr;
+    wire [4:0] EX_rs1_addr;
+    wire [4:0] EX_rs2_addr;
+    wire [2:0] EX_funct3;
+    wire [6:0] EX_funct7;
+    wire EX_reg_write;
+    wire EX_mem_write;
+    wire EX_mem_read;
+    wire EX_branch;
+    wire EX_jump;
+    wire [1:0] EX_alu_a_src;
+    wire [1:0] EX_alu_b_src;
+    wire [1:0] EX_wb_src;
+    wire [31:0] EX_immediate;
+    wire [31:0] EX_rs1_data;
+    wire [31:0] EX_rs2_data;
+    wire [3:0] EX_alu_op;
+    wire [31:0] EX_alu_a_in;
+    wire [31:0] EX_alu_b_in;
+    wire [31:0] EX_alu_out;
+    wire EX_z;
+    wire EX_MEM_enable;
+    wire EX_valid;
     
-    wire [31:0] alu_m_result;
+    wire [31:0] EX_alu_m_result;
+    
+    wire EX_spec_taken;
+    wire EX_branch_mispredict;
+    wire [31:0] EX_branch_recovery;
+    wire EX_branch_recovery_redirect;
+    wire EX_branch_target_aligned;
+    wire EX_jump_target_aligned;
+    
+    assign EX_branch_mispredict = EX_valid && EX_branch && (EX_spec_taken != EX_branch_taken);
+    assign EX_branch_recovery = EX_branch_taken ? EX_branch_target : EX_pc_plus4;
+    assign EX_branch_target_aligned = (EX_branch_target[1:0] == 2'b00);
+    assign EX_branch_recovery_redirect = EX_branch_mispredict && (!EX_branch_taken || EX_branch_target_aligned);
+
     
     //M unit
     
-    wire ex_is_m_instr;
-    wire ex_m_start;
-    reg ex_m_started;
-    wire ex_m_busy;
-    wire ex_m_stall;
-    wire ex_m_done;
-    wire [31:0] ex_m_result;
+    wire EX_is_m_instr;
+    wire EX_m_start;
+    reg EX_m_started;
+    wire EX_m_busy;
+    wire EX_m_stall;
+    wire EX_m_done;
+    wire [31:0] EX_m_out;
     
-    assign ex_is_m_instr = (id_ex_valid_out && ex_opcode == 7'b0110011 && ex_funct7 == 7'b0000001);
-    assign ex_m_start = ex_is_m_instr && !ex_m_started && !ex_m_busy;
-    assign ex_m_stall = ex_is_m_instr && !ex_m_done;
+    assign EX_is_m_instr = (EX_valid && EX_opcode == 7'b0110011 && EX_funct7 == 7'b0000001);
+    assign EX_m_start = EX_is_m_instr && !EX_m_started && !EX_m_busy;
+    assign EX_m_stall = EX_is_m_instr && !EX_m_done;
     
-    //mem signals
-    wire [31:0] mem_pc_plus4;
-    wire [31:0] mem_ALU_out;
-    wire [31:0] mem_rs1_data;
-    wire [31:0] mem_rs2_data;
-    wire [4:0] mem_rd_addr;
-    wire [2:0] mem_funct3;
-    wire mem_reg_write;
-    wire mem_mem_write;
-    wire mem_mem_read;
-    wire [1:0] mem_WB_src;
-    wire [31:0] mem_data_mem_out;
+    //MEM signals
+    wire [31:0] MEM_pc_plus4;
+    wire [31:0] MEM_alu_out;
+    wire [31:0] MEM_rs1_data;
+    wire [31:0] MEM_rs2_data;
+    wire [4:0] MEM_rd_addr;
+    wire [2:0] MEM_funct3;
+    wire MEM_reg_write;
+    wire MEM_mem_write;
+    wire MEM_mem_read;
+    wire [1:0] MEM_wb_src;
+    wire [31:0] MEM_data_mem_out;
+    wire MEM_valid;
     
     
-    //wb signals
-    wire [31:0] wb_data;
-    wire wb_reg_write;
-    wire [4:0] wb_rd_addr;
-    wire mem_wb_enable;
-    wire mem_wb_valid_in;
-    wire mem_wb_valid_out;
-    wire [31:0] wb_ALU_out;
-    wire [31:0] wb_data_mem;
-    wire [31:0] wb_pc_plus4;
-    wire [1:0] wb_WB_src;
+    //WB signals
+    wire [31:0] WB_data;
+    wire WB_reg_write;
+    wire [4:0] WB_rd_addr;
+    wire MEM_WB_enable;
+    wire WB_valid;
+    wire [31:0] WB_alu_out;
+    wire [31:0] WB_data_mem;
+    wire [31:0] WB_pc_plus4;
+    wire [1:0] WB_wb_src;
     
     //hazrad signals
-    //wire [1:0] forward_sel_A;
-    //wire [1:0] forward_sel_B;
     
-    wire forward_A_MEM;
-    wire forward_A_WB;
-    wire forward_B_MEM;
-    wire forward_B_WB;
-    wire [31:0] forwarded_rs1_data;
-    wire [31:0] forwarded_rs2_data;
+    wire EX_forward_a_mem;
+    wire EX_forward_a_wb;
+    wire EX_forward_b_mem;
+    wire EX_forward_b_wb;
+    wire [31:0] EX_forwarded_rs1_data;
+    wire [31:0] EX_forwarded_rs2_data;
     
-    wire stall;
-    wire flush;
+    wire ID_stall;
+    wire EX_flush;
     
-    wire ex_branch_redirect;
-    wire ex_jump_redirect;
-    wire ex_instr_addr_aligned;
+    wire EX_jump_redirect;
+    wire EX_instr_addr_fault;
     
-    wire ex_instr_addr_fault;
+    assign EX_jump_target_aligned = (EX_jump_target[1:0] == 2'b00);
+    assign EX_jump_redirect = EX_jump_taken && EX_jump_target_aligned;
     
-    assign ex_instr_addr_fault = id_ex_valid_out && !ex_instr_addr_aligned;
+    assign EX_instr_addr_fault = EX_valid && ((EX_branch_taken && !EX_branch_target_aligned) || (EX_jump_taken && !EX_jump_target_aligned));
     
-    assign ex_branch_redirect = ex_branch_taken && ex_instr_addr_aligned;
-    assign ex_jump_redirect = ex_jump_taken && ex_instr_addr_aligned;
+    assign IF_pc_plus4 = IF_pc + 32'd4;
+    assign IF_pc_enable = EX_flush ? 1'b1 : ((ID_stall | EX_m_stall) ? 1'b0 : 1'b1);
     
-    assign if_pc_plus4 = if_pc + 32'd4;
-    assign if_pc_enable = flush ? 1'b1 : ((stall | ex_m_stall) ? 1'b0 : 1'b1);
+    assign IF_ID_flush = EX_flush | EX_instr_addr_fault;
+    assign IF_ID_enable = (ID_stall | EX_m_stall) ? 1'b0 : 1'b1;
     
-    assign if_id_valid_in = if_fetch_valid;
-    assign if_id_flush = flush | ex_instr_addr_fault ;
-    assign if_id_enable = (stall | ex_m_stall) ? 1'b0 : 1'b1;
+    assign ID_EX_flush = EX_flush | EX_instr_addr_fault;
+    assign ID_EX_enable = EX_m_stall ? 1'b0 : 1'b1;
     
-    assign id_ex_valid_in = stall ? 1'b0 : if_id_valid_out;
-    assign id_ex_flush = flush | ex_instr_addr_fault;
-    assign id_ex_enable = ex_m_stall ? 1'b0 : 1'b1; 
+    assign EX_MEM_enable = 1'b1;
     
-    assign ex_mem_valid_in = ex_m_stall ? 1'b0 : id_ex_valid_out;
-    assign ex_mem_enable = 1'b1;
-    
-    assign mem_wb_valid_in = ex_mem_valid_out; 
-    assign mem_wb_enable = 1'b1;
+    assign MEM_WB_enable = 1'b1;
 
     always @(posedge clk) begin
         if(rst) begin
-            ex_m_started <= 1'b0;
+            EX_m_started <= 1'b0;
         end
         
-        else if(ex_m_done) begin
-            ex_m_started <= 1'b0;
+        else if(EX_m_done) begin
+            EX_m_started <= 1'b0;
         end
         
-        else if(ex_m_start) begin
-            ex_m_started <= 1'b1;
+        else if(EX_m_start) begin
+            EX_m_started <= 1'b1;
         end
     end
     
     pc pc_ (.clk(clk),
             .rst(rst),
-            .pc_enable(if_pc_enable),
-            .pc_next(if_pc_next),
-            .pc(if_pc));
+            .pc_enable(IF_pc_enable),
+            .pc_next(IF_pc_next),
+            .pc(IF_pc));
     
-    pc_mux pc_mux_ (.pc_plus4(if_pc_plus4),
-                    .branch_target(ex_branch_target),
-                    .jump_target(ex_jump_target),
-                    .branch_redirect(ex_branch_redirect),
-                    .jump_redirect(ex_jump_redirect),
-                    .pc_next(if_pc_next));
+    pc_mux pc_mux_ (.pc_plus4(IF_pc_plus4),
+                    .pred_target(IF_pred_target),
+                    .branch_recovery(EX_branch_recovery),
+                    .jump_target(EX_jump_target),
+                    .pred_redirect(IF_pred_redirect),
+                    .branch_recovery_redirect(EX_branch_recovery_redirect),
+                    .jump_redirect(EX_jump_redirect),
+                    .pc_next(IF_pc_next));
             
-    instr_mem instr_mem_ (.pc_in(if_pc),
-                          .instr_out(if_instr),
-                          .fetch_valid(if_fetch_valid));
+    instr_mem instr_mem_ (.pc_in(IF_pc),
+                          .instr_out(IF_instr),
+                          .fetch_valid(IF_fetch_valid));
     
                           
     if_id_register if_id_register_ (.clk(clk),
                                     .rst(rst),
-                                    .if_id_enable(if_id_enable), 
-                                    .flush(if_id_flush), 
-                                    .valid_in(if_id_valid_in),
-                                    .instr_in(if_instr),
-                                    .pc_in(if_pc),
-                                    .pc_plus4_in(if_pc_plus4),
-                                    .instr_out(id_instr),
-                                    .pc_out(id_pc),
-                                    .pc_plus4_out(id_pc_plus4),
-                                    .valid_out(if_id_valid_out));
+                                    .if_id_enable(IF_ID_enable),
+                                    .flush(IF_ID_flush),
+                                    .valid_in(IF_fetch_valid),
+                                    .instr_in(IF_instr),
+                                    .pc_in(IF_pc),
+                                    .pc_plus4_in(IF_pc_plus4),
+                                    .spec_taken_in(IF_spec_taken),
+                                    .instr_out(ID_instr),
+                                    .pc_out(ID_pc),
+                                    .pc_plus4_out(ID_pc_plus4),
+                                    .valid_out(ID_valid),
+                                    .spec_taken_out(ID_spec_taken));
                                     
-    instr_field_extractor instr_field_extractor_ (.instr(id_instr),
-                                                  .opcode(id_opcode),
-                                                  .rd_addr(id_rd_addr),
-                                                  .rs1_addr(id_rs1_addr),
-                                                  .rs2_addr(id_rs2_addr),
-                                                  .funct3(id_funct3),
-                                                  .funct7(id_funct7));
+    instr_field_extractor instr_field_extractor_ (.instr(ID_instr),
+                                                  .opcode(ID_opcode),
+                                                  .rd_addr(ID_rd_addr),
+                                                  .rs1_addr(ID_rs1_addr),
+                                                  .rs2_addr(ID_rs2_addr),
+                                                  .funct3(ID_funct3),
+                                                  .funct7(ID_funct7));
     
-    decoder decoder_ (.opcode(id_opcode),
-                      .reg_write(id_reg_write),
-                      .mem_write(id_mem_write),
-                      .mem_read(id_mem_read),
-                      .ALU_A_src(id_ALU_A_src),
-                      .ALU_B_src(id_ALU_B_src),
-                      .WB_src(id_WB_src),
-                      .opcode_invalid(id_opcode_invalid),
-                      .branch(id_branch),
-                      .jump(id_jump),
-                      .rs1_used(id_rs1_used),
-                      .rs2_used(id_rs2_used));
+    decoder decoder_ (.opcode(ID_opcode),
+                      .reg_write(ID_reg_write),
+                      .mem_write(ID_mem_write),
+                      .mem_read(ID_mem_read),
+                      .alu_a_src(ID_alu_a_src),
+                      .alu_b_src(ID_alu_b_src),
+                      .wb_src(ID_wb_src),
+                      .opcode_invalid(ID_opcode_invalid),
+                      .branch(ID_branch),
+                      .jump(ID_jump),
+                      .rs1_used(ID_rs1_used),
+                      .rs2_used(ID_rs2_used));
                       
-    imm_gen imm_gen_ (.instr(id_instr),
-                      .immediate(id_immediate));
+    imm_gen imm_gen_ (.instr(ID_instr),
+                      .immediate(ID_immediate));
                       
-    alu_decoder alu_decoder_ (.instr(id_instr),
-                              .alu_op(id_alu_op));    
+    alu_decoder alu_decoder_ (.instr(ID_instr),
+                              .alu_op(ID_alu_op));
     
     reg_file reg_file_ (.clk(clk),
                         .rst(rst),
-                        .write_en(wb_reg_write),
-                        .rs1_addr(id_rs1_addr),
-                        .rs2_addr(id_rs2_addr),
-                        .rd_addr(wb_rd_addr),
-                        .rs1_data(id_rs1_data),
-                        .rs2_data(id_rs2_data),
-                        .wb_data(wb_data),
-                        .mem_wb_valid_out(mem_wb_valid_out));
+                        .write_en(WB_reg_write),
+                        .rs1_addr(ID_rs1_addr),
+                        .rs2_addr(ID_rs2_addr),
+                        .rd_addr(WB_rd_addr),
+                        .rs1_data(ID_rs1_data),
+                        .rs2_data(ID_rs2_data),
+                        .wb_data(WB_data),
+                        .valid(WB_valid));
                         
     id_ex_register id_ex_register_ (.clk(clk),
                                     .rst(rst),
-                                    .id_ex_enable(id_ex_enable), 
-                                    .flush(id_ex_flush),
-                                    .valid_in(id_ex_valid_in),
-                                    .pc_in(id_pc),
-                                    .pc_plus4_in(id_pc_plus4),
-                                    .opcode_in(id_opcode),
-                                    .rd_addr_in(id_rd_addr),
-                                    .rs1_addr_in(id_rs1_addr),
-                                    .rs2_addr_in(id_rs2_addr),
-                                    .funct3_in(id_funct3),
-                                    .funct7_in(id_funct7),
-                                    .immediate_in(id_immediate),
-                                    .rs1_data_in(id_rs1_data),
-                                    .rs2_data_in(id_rs2_data),
-                                    .alu_op_in(id_alu_op),
-                                    .reg_write_in(id_reg_write),
-                                    .mem_write_in(id_mem_write),
-                                    .mem_read_in(id_mem_read),
-                                    .branch_in(id_branch),
-                                    .jump_in(id_jump),
-                                    .ALU_A_src_in(id_ALU_A_src),
-                                    .ALU_B_src_in(id_ALU_B_src),
-                                    .WB_src_in(id_WB_src),
-                                    .valid_out(id_ex_valid_out),
-                                    .pc_out(ex_pc),
-                                    .pc_plus4_out(ex_pc_plus4),
-                                    .opcode_out(ex_opcode),
-                                    .rd_addr_out(ex_rd_addr),
-                                    .rs1_addr_out(ex_rs1_addr),
-                                    .rs2_addr_out(ex_rs2_addr),
-                                    .funct3_out(ex_funct3),
-                                    .funct7_out(ex_funct7),
-                                    .immediate_out(ex_immediate),
-                                    .rs1_data_out(ex_rs1_data),
-                                    .rs2_data_out(ex_rs2_data),
-                                    .alu_op_out(ex_alu_op),
-                                    .reg_write_out(ex_reg_write),
-                                    .mem_write_out(ex_mem_write),
-                                    .mem_read_out(ex_mem_read),
-                                    .branch_out(ex_branch),
-                                    .jump_out(ex_jump),
-                                    .ALU_A_src_out(ex_ALU_A_src),
-                                    .ALU_B_src_out(ex_ALU_B_src),
-                                    .WB_src_out(ex_WB_src));  
+                                    .id_ex_enable(ID_EX_enable),
+                                    .flush(ID_EX_flush),
+                                    .valid_in(ID_stall ? 1'b0 : ID_valid),
+                                    .pc_in(ID_pc),
+                                    .pc_plus4_in(ID_pc_plus4),
+                                    .opcode_in(ID_opcode),
+                                    .rd_addr_in(ID_rd_addr),
+                                    .rs1_addr_in(ID_rs1_addr),
+                                    .rs2_addr_in(ID_rs2_addr),
+                                    .funct3_in(ID_funct3),
+                                    .funct7_in(ID_funct7),
+                                    .immediate_in(ID_immediate),
+                                    .rs1_data_in(ID_rs1_data),
+                                    .rs2_data_in(ID_rs2_data),
+                                    .alu_op_in(ID_alu_op),
+                                    .reg_write_in(ID_reg_write),
+                                    .mem_write_in(ID_mem_write),
+                                    .mem_read_in(ID_mem_read),
+                                    .branch_in(ID_branch),
+                                    .jump_in(ID_jump),
+                                    .alu_a_src_in(ID_alu_a_src),
+                                    .alu_b_src_in(ID_alu_b_src),
+                                    .wb_src_in(ID_wb_src),
+                                    .spec_taken_in(ID_spec_taken),
+                                    .valid_out(EX_valid),
+                                    .pc_out(EX_pc),
+                                    .pc_plus4_out(EX_pc_plus4),
+                                    .opcode_out(EX_opcode),
+                                    .rd_addr_out(EX_rd_addr),
+                                    .rs1_addr_out(EX_rs1_addr),
+                                    .rs2_addr_out(EX_rs2_addr),
+                                    .funct3_out(EX_funct3),
+                                    .funct7_out(EX_funct7),
+                                    .immediate_out(EX_immediate),
+                                    .rs1_data_out(EX_rs1_data),
+                                    .rs2_data_out(EX_rs2_data),
+                                    .alu_op_out(EX_alu_op),
+                                    .reg_write_out(EX_reg_write),
+                                    .mem_write_out(EX_mem_write),
+                                    .mem_read_out(EX_mem_read),
+                                    .branch_out(EX_branch),
+                                    .jump_out(EX_jump),
+                                    .alu_a_src_out(EX_alu_a_src),
+                                    .alu_b_src_out(EX_alu_b_src),
+                                    .wb_src_out(EX_wb_src),
+                                    .spec_taken_out(EX_spec_taken));
                                     
-    alu_mux alu_mux_ (.rs1_data(forwarded_rs1_data), //forwarded
-                      .rs2_data(forwarded_rs2_data), //forwarded
-                      .pc(ex_pc),
-                      .immediate(ex_immediate),
-                      .ALU_A_src(ex_ALU_A_src),                                                   
-                      .ALU_B_src(ex_ALU_B_src),
-                      .ALU_A_out(ex_ALU_A_in),                                                      
-                      .ALU_B_out(ex_ALU_B_in));
+    alu_mux alu_mux_ (.rs1_data(EX_forwarded_rs1_data),
+                      .rs2_data(EX_forwarded_rs2_data),
+                      .pc(EX_pc),
+                      .immediate(EX_immediate),
+                      .alu_a_src(EX_alu_a_src),
+                      .alu_b_src(EX_alu_b_src),
+                      .alu_a_out(EX_alu_a_in),
+                      .alu_b_out(EX_alu_b_in));
                       
-    alu alu_ (.A(ex_ALU_A_in),
-              .B(ex_ALU_B_in),
-              .opcode(ex_alu_op),
-              .result(ex_ALU_out),
-              .Z(ex_Z));
+    alu alu_ (.a(EX_alu_a_in),
+              .b(EX_alu_b_in),
+              .opcode(EX_alu_op),
+              .result(EX_alu_out),
+              .z(EX_z));
               
-    branch_controller branch_controller_ (.pc(ex_pc),
-                                          .immediate(ex_immediate),
-                                          .funct3(ex_funct3),
-                                          .forwarded_rs1(forwarded_rs1_data), //forwarded
-                                          .forwarded_rs2(forwarded_rs2_data), //forwarded
-                                          .branch(ex_branch),
-                                          .branch_target(ex_branch_target),
-                                          .branch_taken(ex_branch_taken),
-                                          .id_ex_valid_out(id_ex_valid_out));
+    branch_controller branch_controller_ (.pc(EX_pc),
+                                          .immediate(EX_immediate),
+                                          .funct3(EX_funct3),
+                                          .forwarded_rs1(EX_forwarded_rs1_data),
+                                          .forwarded_rs2(EX_forwarded_rs2_data),
+                                          .branch(EX_branch),
+                                          .branch_target(EX_branch_target),
+                                          .branch_taken(EX_branch_taken),
+                                          .valid(EX_valid));
                                        
-    jump_controller jump_controller_ (.pc(ex_pc),
-                                      .immediate(ex_immediate),
-                                      .opcode(ex_opcode),
-                                      .jump(ex_jump),
-                                      .rs1_data(forwarded_rs1_data), //forwarded
-                                      .jump_target(ex_jump_target),
-                                      .jump_taken(ex_jump_taken),
-                                      .id_ex_valid_out(id_ex_valid_out));
+    jump_controller jump_controller_ (.pc(EX_pc),
+                                      .immediate(EX_immediate),
+                                      .opcode(EX_opcode),
+                                      .jump(EX_jump),
+                                      .rs1_data(EX_forwarded_rs1_data),
+                                      .jump_target(EX_jump_target),
+                                      .jump_taken(EX_jump_taken),
+                                      .valid(EX_valid));
                                       
                                       
     ex_mem_register ex_mem_register_ (.clk(clk),
                                       .rst(rst),
-                                      .ex_mem_enable(ex_mem_enable),
-                                      .valid_in(ex_mem_valid_in),
-                                      .pc_plus4_in(ex_pc_plus4),
-                                      .alu_result_in(alu_m_result),
-                                      .rs1_data_in(forwarded_rs1_data), //forwarded
-                                      .rs2_data_in(forwarded_rs2_data), //forwarded
-                                      .rd_addr_in(ex_rd_addr),
-                                      .funct3_in(ex_funct3),
-                                      .reg_write_in(ex_reg_write),
-                                      .mem_write_in(ex_mem_write),
-                                      .mem_read_in(ex_mem_read),
-                                      .WB_src_in(ex_WB_src),
-                                      .valid_out(ex_mem_valid_out),
-                                      .pc_plus4_out(mem_pc_plus4),
-                                      .alu_result_out(mem_ALU_out),
-                                      .rs1_data_out(mem_rs1_data),
-                                      .rs2_data_out(mem_rs2_data),
-                                      .rd_addr_out(mem_rd_addr),
-                                      .funct3_out(mem_funct3),
-                                      .reg_write_out(mem_reg_write),
-                                      .mem_read_out(mem_mem_read),
-                                      .mem_write_out(mem_mem_write),
-                                      .WB_src_out(mem_WB_src));
+                                      .ex_mem_enable(EX_MEM_enable),
+                                      .valid_in(EX_m_stall ? 1'b0 : EX_valid),
+                                      .pc_plus4_in(EX_pc_plus4),
+                                      .alu_result_in(EX_alu_m_result),
+                                      .rs1_data_in(EX_forwarded_rs1_data),
+                                      .rs2_data_in(EX_forwarded_rs2_data),
+                                      .rd_addr_in(EX_rd_addr),
+                                      .funct3_in(EX_funct3),
+                                      .reg_write_in(EX_reg_write),
+                                      .mem_write_in(EX_mem_write),
+                                      .mem_read_in(EX_mem_read),
+                                      .wb_src_in(EX_wb_src),
+                                      .valid_out(MEM_valid),
+                                      .pc_plus4_out(MEM_pc_plus4),
+                                      .alu_result_out(MEM_alu_out),
+                                      .rs1_data_out(MEM_rs1_data),
+                                      .rs2_data_out(MEM_rs2_data),
+                                      .rd_addr_out(MEM_rd_addr),
+                                      .funct3_out(MEM_funct3),
+                                      .reg_write_out(MEM_reg_write),
+                                      .mem_read_out(MEM_mem_read),
+                                      .mem_write_out(MEM_mem_write),
+                                      .wb_src_out(MEM_wb_src));
                                       
     data_mem data_mem_ (.clk(clk),
                         .rst(rst),
-                        .mem_read(mem_mem_read),
-                        .mem_write(mem_mem_write),
-                        .alu_addr_in(mem_ALU_out),
-                        .data_in(mem_rs2_data),
-                        .funct3(mem_funct3),
-                        .data_out(mem_data_mem_out),
-                        .ex_mem_valid_out(ex_mem_valid_out));
+                        .mem_read(MEM_mem_read),
+                        .mem_write(MEM_mem_write),
+                        .alu_addr_in(MEM_alu_out),
+                        .data_in(MEM_rs2_data),
+                        .funct3(MEM_funct3),
+                        .data_out(MEM_data_mem_out),
+                        .valid(MEM_valid));
 
     mem_wb_register mem_wb_register_ (.clk(clk),
                                       .rst(rst),
-                                      .mem_wb_enable(mem_wb_enable),
-                                      .valid_in(mem_wb_valid_in),
-                                      .alu_result_in(mem_ALU_out),
-                                      .data_mem_in(mem_data_mem_out),
-                                      .pc_plus4_in(mem_pc_plus4),
-                                      .rd_addr_in(mem_rd_addr),
-                                      .reg_write_in(mem_reg_write),
-                                      .WB_src_in(mem_WB_src),
-                                      .valid_out(mem_wb_valid_out),
-                                      .alu_result_out(wb_ALU_out),
-                                      .data_mem_out(wb_data_mem),
-                                      .pc_plus4_out(wb_pc_plus4),
-                                      .rd_addr_out(wb_rd_addr),
-                                      .reg_write_out(wb_reg_write),
-                                      .WB_src_out(wb_WB_src));  
+                                      .mem_wb_enable(MEM_WB_enable),
+                                      .valid_in(MEM_valid),
+                                      .alu_result_in(MEM_alu_out),
+                                      .data_mem_in(MEM_data_mem_out),
+                                      .pc_plus4_in(MEM_pc_plus4),
+                                      .rd_addr_in(MEM_rd_addr),
+                                      .reg_write_in(MEM_reg_write),
+                                      .wb_src_in(MEM_wb_src),
+                                      .valid_out(WB_valid),
+                                      .alu_result_out(WB_alu_out),
+                                      .data_mem_out(WB_data_mem),
+                                      .pc_plus4_out(WB_pc_plus4),
+                                      .rd_addr_out(WB_rd_addr),
+                                      .reg_write_out(WB_reg_write),
+                                      .wb_src_out(WB_wb_src));
 
-    wb_mux wb_mux_ (.alu_result(wb_ALU_out),
-                    .pc_plus4(wb_pc_plus4),
-                    .data_mem_out(wb_data_mem),
-                    .WB_src(wb_WB_src),
-                    .wb_data(wb_data));                 
+    wb_mux wb_mux_ (.alu_result(WB_alu_out),
+                    .pc_plus4(WB_pc_plus4),
+                    .data_mem_out(WB_data_mem),
+                    .wb_src(WB_wb_src),
+                    .wb_data(WB_data));
                     
-    forwarding_controller forwarding_controller_ (.ex_rs1_addr(ex_rs1_addr),
-                                                  .ex_rs2_addr(ex_rs2_addr),
-                                                  .ex_mem_valid_out(ex_mem_valid_out),
-                                                  .mem_rd_addr(mem_rd_addr),
-                                                  .mem_reg_write(mem_reg_write),
-                                                  .mem_mem_read(mem_mem_read),
-                                                  .wb_rd_addr(wb_rd_addr),
-                                                  .wb_reg_write(wb_reg_write),
-                                                  .mem_wb_valid_out(mem_wb_valid_out),
-                                                  .forward_A_MEM(forward_A_MEM),
-                                                  .forward_A_WB(forward_A_WB),
-                                                  .forward_B_MEM(forward_B_MEM),
-                                                  .forward_B_WB(forward_B_WB)
-                                                  ); 
+    forwarding_controller forwarding_controller_ (.EX_rs1_addr(EX_rs1_addr),
+                                                  .EX_rs2_addr(EX_rs2_addr),
+                                                  .MEM_valid(MEM_valid),
+                                                  .MEM_rd_addr(MEM_rd_addr),
+                                                  .MEM_reg_write(MEM_reg_write),
+                                                  .MEM_mem_read(MEM_mem_read),
+                                                  .WB_rd_addr(WB_rd_addr),
+                                                  .WB_reg_write(WB_reg_write),
+                                                  .WB_valid(WB_valid),
+                                                  .forward_a_mem(EX_forward_a_mem),
+                                                  .forward_a_wb(EX_forward_a_wb),
+                                                  .forward_b_mem(EX_forward_b_mem),
+                                                  .forward_b_wb(EX_forward_b_wb));
                                                   
-    forwarding_mux forwarding_mux_ (.forward_A_MEM(forward_A_MEM),
-                                    .forward_A_WB(forward_A_WB),
-                                    .forward_B_MEM(forward_B_MEM),
-                                    .forward_B_WB(forward_B_WB),
-                                    .ex_rs1_data(ex_rs1_data),
-                                    .ex_rs2_data(ex_rs2_data),
-                                    .mem_ALU_out(mem_ALU_out),
-                                    .mem_pc_plus4(mem_pc_plus4),
-                                    .mem_WB_src(mem_WB_src),
-                                    .wb_data(wb_data),
-                                    .forwarded_data_A(forwarded_rs1_data), //forwarded
-                                    .forwarded_data_B(forwarded_rs2_data)); //forwarded
+    forwarding_mux forwarding_mux_ (.forward_a_mem(EX_forward_a_mem),
+                                    .forward_a_wb(EX_forward_a_wb),
+                                    .forward_b_mem(EX_forward_b_mem),
+                                    .forward_b_wb(EX_forward_b_wb),
+                                    .EX_rs1_data(EX_rs1_data),
+                                    .EX_rs2_data(EX_rs2_data),
+                                    .MEM_alu_out(MEM_alu_out),
+                                    .MEM_pc_plus4(MEM_pc_plus4),
+                                    .MEM_wb_src(MEM_wb_src),
+                                    .WB_data(WB_data),
+                                    .forwarded_data_a(EX_forwarded_rs1_data),
+                                    .forwarded_data_b(EX_forwarded_rs2_data));
                                     
-    stall_controller stall_controller_ (.ex_valid(id_ex_valid_out),
-                                        .ex_mem_read(ex_mem_read),
-                                        .ex_rd_addr(ex_rd_addr),
-                                        .id_valid(if_id_valid_out),
-                                        .id_rs1_addr(id_rs1_addr),
-                                        .id_rs2_addr(id_rs2_addr),
-                                        .id_rs1_used(id_rs1_used),
-                                        .id_rs2_used(id_rs2_used),
-                                        .stall(stall));           
+    stall_controller stall_controller_ (.EX_valid(EX_valid),
+                                        .EX_mem_read(EX_mem_read),
+                                        .EX_rd_addr(EX_rd_addr),
+                                        .ID_valid(ID_valid),
+                                        .ID_rs1_addr(ID_rs1_addr),
+                                        .ID_rs2_addr(ID_rs2_addr),
+                                        .ID_rs1_used(ID_rs1_used),
+                                        .ID_rs2_used(ID_rs2_used),
+                                        .stall(ID_stall));
                                         
-    flush_controller flush_controller_ (.branch_taken(ex_branch_taken),
-                                        .jump_taken(ex_jump_taken),
-                                        .flush(flush));
-    
-    instr_addr_alignment instr_addr_alignment_ (.branch_taken(ex_branch_taken),
-                                                .jump_taken(ex_jump_taken),
-                                                .branch_target(ex_branch_target),
-                                                .jump_target(ex_jump_target),
-                                                .instr_addr_aligned(ex_instr_addr_aligned));
+    flush_controller flush_controller_ (.branch_mispredict(EX_branch_mispredict),
+                                        .jump_taken(EX_jump_taken),
+                                        .flush(EX_flush));
                                                 
     m_unit m_unit_ (.clk(clk),
                     .rst(rst),
-                    .start(ex_m_start),
-                    .A_in(forwarded_rs1_data),
-                    .B_in(forwarded_rs2_data),
-                    .funct3(ex_funct3),
-                    .result(ex_m_result),
-                    .done(ex_m_done),
-                    .busy(ex_m_busy));
+                    .start(EX_m_start),
+                    .a_in(EX_forwarded_rs1_data),
+                    .b_in(EX_forwarded_rs2_data),
+                    .funct3(EX_funct3),
+                    .result(EX_m_out),
+                    .done(EX_m_done),
+                    .busy(EX_m_busy));
                     
-    alu_m_result_mux alu_m_result_mux_ (.ex_ALU_out(ex_ALU_out),
-                                        .ex_m_result(ex_m_result),
-                                        .ex_is_m_instr(ex_is_m_instr),
-                                        .alu_m_result(alu_m_result));
+    alu_m_result_mux alu_m_result_mux_ (.alu_out(EX_alu_out),
+                                        .m_out(EX_m_out),
+                                        .is_m_instr(EX_is_m_instr),
+                                        .alu_m_result(EX_alu_m_result));
     
-    assign debug_led[0] = ^if_pc;
-    assign debug_led[1] = ^if_instr;
-    assign debug_led[2] = ^wb_data;
-    assign debug_led[3] = ^mem_data_mem_out;
+    branch_predictor branch_predictor_ (.clk(clk),
+                                        .rst(rst),
+                                        .IF_pc(IF_pc),
+                                        .IF_instr(IF_instr),
+                                        .EX_pc(EX_pc),
+                                        .EX_valid(EX_valid),
+                                        .EX_branch(EX_branch),
+                                        .EX_branch_taken(EX_branch_taken),
+                                        .IF_pred_taken(IF_pred_taken),
+                                        .IF_pred_target(IF_pred_target));
                                         
-                                                             
+    
+    assign debug_led[0] = ^IF_pc;
+    assign debug_led[1] = ^IF_instr;
+    assign debug_led[2] = ^WB_data;
+    assign debug_led[3] = ^MEM_data_mem_out;
+                                        
 endmodule
