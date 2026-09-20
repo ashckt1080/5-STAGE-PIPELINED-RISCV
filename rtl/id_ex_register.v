@@ -25,6 +25,7 @@ module id_ex_register(
     input [1:0] alu_b_src_in,
     input [1:0] wb_src_in,
     input spec_taken_in,
+    input [5:0] pred_index_in,
     output reg valid_out,
     output reg [31:0] pc_out,
     output reg [31:0] pc_plus4_out,
@@ -46,7 +47,8 @@ module id_ex_register(
     output reg [1:0] alu_a_src_out,
     output reg [1:0] alu_b_src_out,
     output reg [1:0] wb_src_out,
-    output reg spec_taken_out
+    output reg spec_taken_out,
+    output reg [5:0] pred_index_out
 );
 
     always @(posedge clk) begin
@@ -73,6 +75,7 @@ module id_ex_register(
         alu_b_src_out <= 2'b0;
         wb_src_out <= 2'b0;
         spec_taken_out <= 1'b0;
+        pred_index_out <= 6'b0;
     end
 
     else if(id_ex_enable) begin
@@ -97,6 +100,7 @@ module id_ex_register(
         alu_b_src_out <= alu_b_src_in;
         wb_src_out <= wb_src_in;
         spec_taken_out <= spec_taken_in;
+        pred_index_out <= pred_index_in;
     end
     
     if (rst) begin

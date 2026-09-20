@@ -21,15 +21,7 @@ module cpu_top(
     wire IF_fetch_valid;
     wire IF_ID_flush;
     wire IF_ID_enable;
-    wire IF_pred_taken;
-    wire [31:0] IF_pred_target;
-    wire IF_pred_target_aligned;
-    wire IF_pred_redirect;
-    wire IF_spec_taken;
-    
-    assign IF_pred_target_aligned = (IF_pred_target[1:0] == 2'b00);
-    assign IF_pred_redirect = IF_fetch_valid && IF_pred_taken && IF_pred_target_aligned;
-    assign IF_spec_taken = IF_pred_redirect;
+
     
     //ID signals
     wire [31:0] ID_pc;
@@ -59,7 +51,7 @@ module cpu_top(
     wire ID_EX_flush;
     wire ID_rs1_used;
     wire ID_rs2_used;
-    wire ID_spec_taken;
+
      
     //EX signals
     wire [31:0] EX_branch_target;
@@ -95,18 +87,35 @@ module cpu_top(
     
     wire [31:0] EX_alu_m_result;
     
+    //Branch Predictor
+    
+    wire [5:0] IF_pred_index;
+    wire [5:0] ID_pred_index;
+    wire [5:0] EX_pred_index;
+    
+    wire IF_pred_taken;
+    wire [31:0] IF_pred_target;
+    wire IF_pred_target_aligned;
+    wire IF_pred_redirect;
+    
+    wire IF_spec_taken;
+    wire ID_spec_taken;
     wire EX_spec_taken;
+    
+    wire EX_branch_target_aligned;
     wire EX_branch_mispredict;
     wire [31:0] EX_branch_recovery;
     wire EX_branch_recovery_redirect;
-    wire EX_branch_target_aligned;
     wire EX_jump_target_aligned;
     
+    assign IF_pred_target_aligned = (IF_pred_target[1:0] == 2'b00);
+    assign IF_pred_redirect = IF_fetch_valid && IF_pred_taken && IF_pred_target_aligned;
+    assign IF_spec_taken = IF_pred_redirect;
+    
+    assign EX_branch_target_aligned = (EX_branch_target[1:0] == 2'b00);
     assign EX_branch_mispredict = EX_valid && EX_branch && (EX_spec_taken != EX_branch_taken);
     assign EX_branch_recovery = EX_branch_taken ? EX_branch_target : EX_pc_plus4;
-    assign EX_branch_target_aligned = (EX_branch_target[1:0] == 2'b00);
     assign EX_branch_recovery_redirect = EX_branch_mispredict && (!EX_branch_taken || EX_branch_target_aligned);
-
     
     //M unit
     
@@ -148,7 +157,7 @@ module cpu_top(
     wire [31:0] WB_pc_plus4;
     wire [1:0] WB_wb_src;
     
-    //hazrad signals
+    //Hazrad signals
     
     wire EX_forward_a_mem;
     wire EX_forward_a_wb;
@@ -228,7 +237,9 @@ module cpu_top(
                                     .pc_out(ID_pc),
                                     .pc_plus4_out(ID_pc_plus4),
                                     .valid_out(ID_valid),
-                                    .spec_taken_out(ID_spec_taken));
+                                    .spec_taken_out(ID_spec_taken),
+                                    .pred_index_in(IF_pred_index),
+                                    .pred_index_out(ID_pred_index));
                                     
     instr_field_extractor instr_field_extractor_ (.instr(ID_instr),
                                                   .opcode(ID_opcode),
@@ -315,7 +326,9 @@ module cpu_top(
                                     .alu_a_src_out(EX_alu_a_src),
                                     .alu_b_src_out(EX_alu_b_src),
                                     .wb_src_out(EX_wb_src),
-                                    .spec_taken_out(EX_spec_taken));
+                                    .spec_taken_out(EX_spec_taken),
+                                    .pred_index_in(ID_pred_index),
+                                    .pred_index_out(EX_pred_index));
                                     
     alu_mux alu_mux_ (.rs1_data(EX_forwarded_rs1_data),
                       .rs2_data(EX_forwarded_rs2_data),
@@ -472,12 +485,13 @@ module cpu_top(
                                         .rst(rst),
                                         .IF_pc(IF_pc),
                                         .IF_instr(IF_instr),
-                                        .EX_pc(EX_pc),
+                                        .EX_pred_index(EX_pred_index),
                                         .EX_valid(EX_valid),
                                         .EX_branch(EX_branch),
                                         .EX_branch_taken(EX_branch_taken),
                                         .IF_pred_taken(IF_pred_taken),
-                                        .IF_pred_target(IF_pred_target));
+                                        .IF_pred_target(IF_pred_target),
+                                        .IF_pred_index(IF_pred_index));
                                         
     
     assign debug_led[0] = ^IF_pc;
