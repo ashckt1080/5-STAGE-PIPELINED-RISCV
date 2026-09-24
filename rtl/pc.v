@@ -3,22 +3,21 @@
 module pc(
     input clk,
     input rst,
-    input pc_enable,
     input [31:0] pc_next,
-    output reg [31:0] pc
+    output [31:0] pc
     );
-    
-    
-    always @ (posedge clk) begin
-        if(rst) begin
-            pc <= 32'b0;
-        end
-     
-        else begin
-            if(pc_enable) begin
-                pc <= pc_next;
-            end
-        end
+
+    (* extract_enable = "no" *)
+    reg [31:0] pc_reg;
+
+    assign pc = pc_reg;
+
+    always @(posedge clk) begin
+        if(rst)
+            pc_reg <= 32'b0;
+
+        else
+            pc_reg <= pc_next;
     end
-    
+
 endmodule

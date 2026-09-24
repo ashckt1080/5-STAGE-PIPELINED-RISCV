@@ -2,7 +2,6 @@
 
 module data_mem(
     input clk,
-    input rst,
     input mem_read,
     input mem_write,
     input [31:0] alu_addr_in,
@@ -12,8 +11,13 @@ module data_mem(
     output reg [31:0] data_out
     );
 
-    (* ram_style = "distributed" *)
+    (* ram_style = "block" *)
     reg [31:0] memory [0:1023];
+
+    reg [31:0] read_data;
+    reg [2:0] read_funct3;
+    reg [1:0] read_byte_index;
+    reg read_valid;
 
     wire addr_valid;
     wire word_valid;
@@ -43,47 +47,90 @@ module data_mem(
 
     always @(*) begin
 
-        case(funct3)
-            LB : begin
-                case(byte_index)
-                    2'b00 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][7]}},memory[alu_addr_in[11:2]][7:0]} : 32'b0;
-                    2'b01 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][15]}},memory[alu_addr_in[11:2]][15:8]} : 32'b0;
-                    2'b10 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][23]}},memory[alu_addr_in[11:2]][23:16]} : 32'b0;
-                    2'b11 : data_out = (byte_valid && mem_read && valid) ? {{24{memory[alu_addr_in[11:2]][31]}},memory[alu_addr_in[11:2]][31:24]} : 32'b0;
-                endcase
-            end
+        if(read_valid) begin
 
-            LBU : begin
-                case(byte_index)
-                    2'b00 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][7:0]} : 32'b0;
-                    2'b01 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][15:8]} : 32'b0;
-                    2'b10 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][23:16]} : 32'b0;
-                    2'b11 : data_out = (byte_valid && mem_read && valid) ? {24'b0,memory[alu_addr_in[11:2]][31:24]} : 32'b0;
-                endcase
-            end
+            case(read_funct3)
+                LB : begin
+                    case(read_byte_index)
+                        2'b00 : data_out = {{24{read_data[7]}},read_data[7:0]};
+                        2'b01 : data_out = {{24{read_data[15]}},read_data[15:8]};
+                        2'b10 : data_out = {{24{read_data[23]}},read_data[23:16]};
+                        2'b11 : data_out = {{24{read_data[31]}},read_data[31:24]};
+                    endcase
+                end
 
-            LH : begin
-                case(half_word_index)
-                    1'b0 : data_out = (half_word_valid && mem_read && valid) ? {{16{memory[alu_addr_in[11:2]][15]}},memory[alu_addr_in[11:2]][15:0]} : 32'b0;
-                    1'b1 : data_out = (half_word_valid && mem_read && valid) ? {{16{memory[alu_addr_in[11:2]][31]}},memory[alu_addr_in[11:2]][31:16]} : 32'b0;
-                endcase
-            end
+                LBU : begin
+                    case(read_byte_index)
+                        2'b00 : data_out = {24'b0,read_data[7:0]};
+                        2'b01 : data_out = {24'b0,read_data[15:8]};
+                        2'b10 : data_out = {24'b0,read_data[23:16]};
+                        2'b11 : data_out = {24'b0,read_data[31:24]};
+                    endcase
+                end
 
-            LHU : begin
-                case(half_word_index)
-                    1'b0 : data_out = (half_word_valid && mem_read && valid) ? {16'b0,memory[alu_addr_in[11:2]][15:0]} : 32'b0;
-                    1'b1 : data_out = (half_word_valid && mem_read && valid) ? {16'b0,memory[alu_addr_in[11:2]][31:16]} : 32'b0;
-                endcase
-            end
+                LH : begin
+                    case(read_byte_index[1])
+                        1'b0 : data_out = {{16{read_data[15]}},read_data[15:0]};
+                        1'b1 : data_out = {{16{read_data[31]}},read_data[31:16]};
+                    endcase
+                end
 
-            LW : data_out = (word_valid && mem_read && valid) ? memory[alu_addr_in[11:2]] : 32'b0;
+                LHU : begin
+                    case(read_byte_index[1])
+                        1'b0 : data_out = {16'b0,read_data[15:0]};
+                        1'b1 : data_out = {16'b0,read_data[31:16]};
+                    endcase
+                end
 
-            default : data_out = 32'b0;
-        endcase
+                LW : data_out = read_data;
+
+                default : data_out = 32'b0;
+            endcase
+        end
+
+        else begin
+            data_out = 32'b0;
+        end
     end
 
     always @(posedge clk) begin
-    
+
+        read_valid <= 1'b0;
+
+        if(mem_read && valid) begin
+
+            case(funct3)
+                LB, LBU : begin
+                    if(byte_valid) begin
+                        read_data <= memory[alu_addr_in[11:2]];
+                        read_funct3 <= funct3;
+                        read_byte_index <= byte_index;
+                        read_valid <= 1'b1;
+                    end
+                end
+
+                LH, LHU : begin
+                    if(half_word_valid) begin
+                        read_data <= memory[alu_addr_in[11:2]];
+                        read_funct3 <= funct3;
+                        read_byte_index <= byte_index;
+                        read_valid <= 1'b1;
+                    end
+                end
+
+                LW : begin
+                    if(word_valid) begin
+                        read_data <= memory[alu_addr_in[11:2]];
+                        read_funct3 <= funct3;
+                        read_byte_index <= byte_index;
+                        read_valid <= 1'b1;
+                    end
+                end
+
+                default : ;
+            endcase
+        end
+
         if(mem_write && valid) begin
 
             case(funct3)

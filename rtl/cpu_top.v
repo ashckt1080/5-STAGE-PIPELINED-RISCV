@@ -5,24 +5,43 @@ module cpu_top(
     input raw_rst,
     output [3:0] debug_led
     );
-    
+
     wire rst;
-    
+
     reset_sync reset_sync_ (.clk(clk),
                             .raw_rst(raw_rst),
                             .rst(rst));
-    
+
     //IF signals
-    wire IF_pc_enable;
+    wire IF_pc_hold;
+    wire [31:0] IF_pc_mux_out;
     wire [31:0] IF_pc_next;
     wire [31:0] IF_pc;
     wire [31:0] IF_pc_plus4;
-    wire [31:0] IF_instr;
     wire IF_fetch_valid;
     wire IF_ID_flush;
     wire IF_ID_enable;
 
-    
+    assign IF_fetch_valid = (IF_pc[1:0] == 2'b00) && (IF_pc[31:12] == 20'b0);
+
+    //Branch Predictor / BTB signals
+    wire [5:0] IF_pred_index;
+    wire [5:0] ID_pred_index;
+    wire [5:0] EX_pred_index;
+
+    wire IF_pred_taken;
+    wire [31:0] IF_pred_target;
+    wire IF_pred_target_aligned;
+    wire IF_pred_redirect;
+
+    wire IF_spec_taken;
+    wire ID_spec_taken;
+    wire EX_spec_taken;
+
+    assign IF_pred_target_aligned = (IF_pred_target[1:0] == 2'b00);
+    assign IF_pred_redirect = IF_fetch_valid && IF_pred_taken && IF_pred_target_aligned;
+    assign IF_spec_taken = IF_pred_redirect;
+
     //ID signals
     wire [31:0] ID_pc;
     wire [31:0] ID_pc_plus4;
@@ -52,7 +71,6 @@ module cpu_top(
     wire ID_rs1_used;
     wire ID_rs2_used;
 
-     
     //EX signals
     wire [31:0] EX_branch_target;
     wire [31:0] EX_jump_target;
@@ -84,41 +102,23 @@ module cpu_top(
     wire EX_z;
     wire EX_MEM_enable;
     wire EX_valid;
-    
+
     wire [31:0] EX_alu_m_result;
-    
-    //Branch Predictor
-    
-    wire [5:0] IF_pred_index;
-    wire [5:0] ID_pred_index;
-    wire [5:0] EX_pred_index;
-    
-    wire IF_pred_taken;
-    wire [31:0] IF_pred_target;
-    wire IF_pred_target_aligned;
-    wire IF_pred_redirect;
-    
-    wire IF_spec_taken;
-    wire ID_spec_taken;
-    wire EX_spec_taken;
-    
+
+    wire MEM_wait;
+
     wire EX_branch_target_aligned;
     wire EX_branch_mispredict;
     wire [31:0] EX_branch_recovery;
     wire EX_branch_recovery_redirect;
     wire EX_jump_target_aligned;
-    
-    assign IF_pred_target_aligned = (IF_pred_target[1:0] == 2'b00);
-    assign IF_pred_redirect = IF_fetch_valid && IF_pred_taken && IF_pred_target_aligned;
-    assign IF_spec_taken = IF_pred_redirect;
-    
+
     assign EX_branch_target_aligned = (EX_branch_target[1:0] == 2'b00);
-    assign EX_branch_mispredict = EX_valid && EX_branch && (EX_spec_taken != EX_branch_taken);
+    assign EX_branch_mispredict = EX_valid && !MEM_wait && EX_branch && (EX_spec_taken != EX_branch_taken);
     assign EX_branch_recovery = EX_branch_taken ? EX_branch_target : EX_pc_plus4;
     assign EX_branch_recovery_redirect = EX_branch_mispredict && (!EX_branch_taken || EX_branch_target_aligned);
-    
+
     //M unit
-    
     wire EX_is_m_instr;
     wire EX_m_start;
     reg EX_m_started;
@@ -126,11 +126,11 @@ module cpu_top(
     wire EX_m_stall;
     wire EX_m_done;
     wire [31:0] EX_m_out;
-    
+
     assign EX_is_m_instr = (EX_valid && EX_opcode == 7'b0110011 && EX_funct7 == 7'b0000001);
-    assign EX_m_start = EX_is_m_instr && !EX_m_started && !EX_m_busy;
+    assign EX_m_start = EX_is_m_instr && !MEM_wait && !EX_m_started && !EX_m_busy;
     assign EX_m_stall = EX_is_m_instr && !EX_m_done;
-    
+
     //MEM signals
     wire [31:0] MEM_pc_plus4;
     wire [31:0] MEM_alu_out;
@@ -144,8 +144,16 @@ module cpu_top(
     wire [1:0] MEM_wb_src;
     wire [31:0] MEM_data_mem_out;
     wire MEM_valid;
-    
-    
+
+    wire MEM_mem_access;
+    wire MEM_mem_request;
+    reg MEM_request_started;
+
+    assign MEM_mem_access = MEM_valid && (MEM_mem_read || MEM_mem_write);
+    assign MEM_mem_request = MEM_mem_access && !MEM_request_started;
+    assign MEM_wait = MEM_mem_access && !MEM_request_started;
+    //assign MEM_wait = MEM_mem_access && !(ack || err);
+
     //WB signals
     wire [31:0] WB_data;
     wire WB_reg_write;
@@ -156,60 +164,76 @@ module cpu_top(
     wire [31:0] WB_data_mem;
     wire [31:0] WB_pc_plus4;
     wire [1:0] WB_wb_src;
-    
-    //Hazrad signals
-    
+
+    //Hazard signals
     wire EX_forward_a_mem;
     wire EX_forward_a_wb;
     wire EX_forward_b_mem;
     wire EX_forward_b_wb;
     wire [31:0] EX_forwarded_rs1_data;
     wire [31:0] EX_forwarded_rs2_data;
-    
+
     wire ID_stall;
     wire EX_flush;
-    
+
     wire EX_jump_redirect;
     wire EX_instr_addr_fault;
-    
+
     assign EX_jump_target_aligned = (EX_jump_target[1:0] == 2'b00);
-    assign EX_jump_redirect = EX_jump_taken && EX_jump_target_aligned;
-    
-    assign EX_instr_addr_fault = EX_valid && ((EX_branch_taken && !EX_branch_target_aligned) || (EX_jump_taken && !EX_jump_target_aligned));
-    
+    assign EX_jump_redirect = EX_valid && !MEM_wait && EX_jump_taken && EX_jump_target_aligned;
+
+    assign EX_instr_addr_fault = EX_valid && !MEM_wait &&
+                                 ((EX_branch_taken && !EX_branch_target_aligned) ||
+                                  (EX_jump_taken && !EX_jump_target_aligned));
+
     assign IF_pc_plus4 = IF_pc + 32'd4;
-    assign IF_pc_enable = EX_flush ? 1'b1 : ((ID_stall | EX_m_stall) ? 1'b0 : 1'b1);
-    
-    assign IF_ID_flush = EX_flush | EX_instr_addr_fault;
-    assign IF_ID_enable = (ID_stall | EX_m_stall) ? 1'b0 : 1'b1;
-    
-    assign ID_EX_flush = EX_flush | EX_instr_addr_fault;
-    assign ID_EX_enable = EX_m_stall ? 1'b0 : 1'b1;
-    
-    assign EX_MEM_enable = 1'b1;
-    
+
+    assign IF_pc_hold = MEM_wait || (!EX_flush && (ID_stall || EX_m_stall));
+    assign IF_pc_next = IF_pc_hold ? IF_pc : IF_pc_mux_out;
+
+    assign IF_ID_flush = !MEM_wait && (EX_flush | EX_instr_addr_fault);
+    assign IF_ID_enable = (ID_stall | EX_m_stall | MEM_wait) ? 1'b0 : 1'b1;
+
+    assign ID_EX_flush = !MEM_wait && (EX_flush | EX_instr_addr_fault);
+    assign ID_EX_enable = (EX_m_stall | MEM_wait) ? 1'b0 : 1'b1;
+
+    assign EX_MEM_enable = MEM_wait ? 1'b0 : 1'b1;
+
     assign MEM_WB_enable = 1'b1;
 
     always @(posedge clk) begin
         if(rst) begin
             EX_m_started <= 1'b0;
         end
-        
+
         else if(EX_m_done) begin
             EX_m_started <= 1'b0;
         end
-        
+
         else if(EX_m_start) begin
             EX_m_started <= 1'b1;
         end
     end
-    
+
+    always @(posedge clk) begin
+        if(rst) begin
+            MEM_request_started <= 1'b0;
+        end
+
+        else if(MEM_request_started) begin
+            MEM_request_started <= 1'b0;
+        end
+
+        else if(MEM_mem_request) begin
+            MEM_request_started <= 1'b1;
+        end
+    end
+
     pc pc_ (.clk(clk),
             .rst(rst),
-            .pc_enable(IF_pc_enable),
             .pc_next(IF_pc_next),
             .pc(IF_pc));
-    
+
     pc_mux pc_mux_ (.pc_plus4(IF_pc_plus4),
                     .pred_target(IF_pred_target),
                     .branch_recovery(EX_branch_recovery),
@@ -217,30 +241,31 @@ module cpu_top(
                     .pred_redirect(IF_pred_redirect),
                     .branch_recovery_redirect(EX_branch_recovery_redirect),
                     .jump_redirect(EX_jump_redirect),
-                    .pc_next(IF_pc_next));
-            
-    instr_mem instr_mem_ (.pc_in(IF_pc),
-                          .instr_out(IF_instr),
-                          .fetch_valid(IF_fetch_valid));
-    
-                          
+                    .pc_next(IF_pc_mux_out));
+
+    instr_mem instr_mem_ (.clk(clk),
+                          .read_en(IF_ID_enable),
+                          .pc_in(IF_pc),
+                          .instr_out(ID_instr));
+
     if_id_register if_id_register_ (.clk(clk),
                                     .rst(rst),
                                     .if_id_enable(IF_ID_enable),
                                     .flush(IF_ID_flush),
                                     .valid_in(IF_fetch_valid),
-                                    .instr_in(IF_instr),
                                     .pc_in(IF_pc),
                                     .pc_plus4_in(IF_pc_plus4),
                                     .spec_taken_in(IF_spec_taken),
-                                    .instr_out(ID_instr),
+                                    .pred_index_in(IF_pred_index),
                                     .pc_out(ID_pc),
                                     .pc_plus4_out(ID_pc_plus4),
                                     .valid_out(ID_valid),
                                     .spec_taken_out(ID_spec_taken),
-                                    .pred_index_in(IF_pred_index),
                                     .pred_index_out(ID_pred_index));
-                                    
+
+    //instr_mem and if_id_register are registered in parallel, instr_mem produces ID_instr,
+    //if_id_register produces matching PC and prediction metadata
+
     instr_field_extractor instr_field_extractor_ (.instr(ID_instr),
                                                   .opcode(ID_opcode),
                                                   .rd_addr(ID_rd_addr),
@@ -248,7 +273,7 @@ module cpu_top(
                                                   .rs2_addr(ID_rs2_addr),
                                                   .funct3(ID_funct3),
                                                   .funct7(ID_funct7));
-    
+
     decoder decoder_ (.opcode(ID_opcode),
                       .reg_write(ID_reg_write),
                       .mem_write(ID_mem_write),
@@ -261,13 +286,13 @@ module cpu_top(
                       .jump(ID_jump),
                       .rs1_used(ID_rs1_used),
                       .rs2_used(ID_rs2_used));
-                      
+
     imm_gen imm_gen_ (.instr(ID_instr),
                       .immediate(ID_immediate));
-                      
+
     alu_decoder alu_decoder_ (.instr(ID_instr),
                               .alu_op(ID_alu_op));
-    
+
     reg_file reg_file_ (.clk(clk),
                         .rst(rst),
                         .write_en(WB_reg_write),
@@ -278,7 +303,7 @@ module cpu_top(
                         .rs2_data(ID_rs2_data),
                         .wb_data(WB_data),
                         .valid(WB_valid));
-                        
+
     id_ex_register id_ex_register_ (.clk(clk),
                                     .rst(rst),
                                     .id_ex_enable(ID_EX_enable),
@@ -305,6 +330,7 @@ module cpu_top(
                                     .alu_b_src_in(ID_alu_b_src),
                                     .wb_src_in(ID_wb_src),
                                     .spec_taken_in(ID_spec_taken),
+                                    .pred_index_in(ID_pred_index),
                                     .valid_out(EX_valid),
                                     .pc_out(EX_pc),
                                     .pc_plus4_out(EX_pc_plus4),
@@ -327,9 +353,8 @@ module cpu_top(
                                     .alu_b_src_out(EX_alu_b_src),
                                     .wb_src_out(EX_wb_src),
                                     .spec_taken_out(EX_spec_taken),
-                                    .pred_index_in(ID_pred_index),
                                     .pred_index_out(EX_pred_index));
-                                    
+
     alu_mux alu_mux_ (.rs1_data(EX_forwarded_rs1_data),
                       .rs2_data(EX_forwarded_rs2_data),
                       .pc(EX_pc),
@@ -338,13 +363,13 @@ module cpu_top(
                       .alu_b_src(EX_alu_b_src),
                       .alu_a_out(EX_alu_a_in),
                       .alu_b_out(EX_alu_b_in));
-                      
+
     alu alu_ (.a(EX_alu_a_in),
               .b(EX_alu_b_in),
               .opcode(EX_alu_op),
               .result(EX_alu_out),
               .z(EX_z));
-              
+
     branch_controller branch_controller_ (.pc(EX_pc),
                                           .immediate(EX_immediate),
                                           .funct3(EX_funct3),
@@ -353,8 +378,8 @@ module cpu_top(
                                           .branch(EX_branch),
                                           .branch_target(EX_branch_target),
                                           .branch_taken(EX_branch_taken),
-                                          .valid(EX_valid));
-                                       
+                                          .valid(EX_valid && !MEM_wait));
+
     jump_controller jump_controller_ (.pc(EX_pc),
                                       .immediate(EX_immediate),
                                       .opcode(EX_opcode),
@@ -362,9 +387,8 @@ module cpu_top(
                                       .rs1_data(EX_forwarded_rs1_data),
                                       .jump_target(EX_jump_target),
                                       .jump_taken(EX_jump_taken),
-                                      .valid(EX_valid));
-                                      
-                                      
+                                      .valid(EX_valid && !MEM_wait));
+
     ex_mem_register ex_mem_register_ (.clk(clk),
                                       .rst(rst),
                                       .ex_mem_enable(EX_MEM_enable),
@@ -390,21 +414,20 @@ module cpu_top(
                                       .mem_read_out(MEM_mem_read),
                                       .mem_write_out(MEM_mem_write),
                                       .wb_src_out(MEM_wb_src));
-                                      
+
     data_mem data_mem_ (.clk(clk),
-                        .rst(rst),
                         .mem_read(MEM_mem_read),
                         .mem_write(MEM_mem_write),
                         .alu_addr_in(MEM_alu_out),
                         .data_in(MEM_rs2_data),
                         .funct3(MEM_funct3),
                         .data_out(MEM_data_mem_out),
-                        .valid(MEM_valid));
+                        .valid(MEM_mem_request));
 
     mem_wb_register mem_wb_register_ (.clk(clk),
                                       .rst(rst),
                                       .mem_wb_enable(MEM_WB_enable),
-                                      .valid_in(MEM_valid),
+                                      .valid_in(MEM_wait ? 1'b0 : MEM_valid),
                                       .alu_result_in(MEM_alu_out),
                                       .data_mem_in(MEM_data_mem_out),
                                       .pc_plus4_in(MEM_pc_plus4),
@@ -424,7 +447,7 @@ module cpu_top(
                     .data_mem_out(WB_data_mem),
                     .wb_src(WB_wb_src),
                     .wb_data(WB_data));
-                    
+
     forwarding_controller forwarding_controller_ (.EX_rs1_addr(EX_rs1_addr),
                                                   .EX_rs2_addr(EX_rs2_addr),
                                                   .MEM_valid(MEM_valid),
@@ -438,7 +461,7 @@ module cpu_top(
                                                   .forward_a_wb(EX_forward_a_wb),
                                                   .forward_b_mem(EX_forward_b_mem),
                                                   .forward_b_wb(EX_forward_b_wb));
-                                                  
+
     forwarding_mux forwarding_mux_ (.forward_a_mem(EX_forward_a_mem),
                                     .forward_a_wb(EX_forward_a_wb),
                                     .forward_b_mem(EX_forward_b_mem),
@@ -451,7 +474,7 @@ module cpu_top(
                                     .WB_data(WB_data),
                                     .forwarded_data_a(EX_forwarded_rs1_data),
                                     .forwarded_data_b(EX_forwarded_rs2_data));
-                                    
+
     stall_controller stall_controller_ (.EX_valid(EX_valid),
                                         .EX_mem_read(EX_mem_read),
                                         .EX_rd_addr(EX_rd_addr),
@@ -461,11 +484,11 @@ module cpu_top(
                                         .ID_rs1_used(ID_rs1_used),
                                         .ID_rs2_used(ID_rs2_used),
                                         .stall(ID_stall));
-                                        
+
     flush_controller flush_controller_ (.branch_mispredict(EX_branch_mispredict),
-                                        .jump_taken(EX_jump_taken),
+                                        .jump_taken(EX_valid && !MEM_wait && EX_jump_taken),
                                         .flush(EX_flush));
-                                                
+
     m_unit m_unit_ (.clk(clk),
                     .rst(rst),
                     .start(EX_m_start),
@@ -475,28 +498,28 @@ module cpu_top(
                     .result(EX_m_out),
                     .done(EX_m_done),
                     .busy(EX_m_busy));
-                    
+
     alu_m_result_mux alu_m_result_mux_ (.alu_out(EX_alu_out),
                                         .m_out(EX_m_out),
                                         .is_m_instr(EX_is_m_instr),
                                         .alu_m_result(EX_alu_m_result));
-    
+
     branch_predictor branch_predictor_ (.clk(clk),
                                         .rst(rst),
                                         .IF_pc(IF_pc),
-                                        .IF_instr(IF_instr),
+                                        .EX_pc(EX_pc),
+                                        .EX_branch_target(EX_branch_target),
                                         .EX_pred_index(EX_pred_index),
-                                        .EX_valid(EX_valid),
+                                        .EX_valid(EX_valid && !MEM_wait),
                                         .EX_branch(EX_branch),
                                         .EX_branch_taken(EX_branch_taken),
                                         .IF_pred_taken(IF_pred_taken),
                                         .IF_pred_target(IF_pred_target),
                                         .IF_pred_index(IF_pred_index));
-                                        
-    
+
     assign debug_led[0] = ^IF_pc;
-    assign debug_led[1] = ^IF_instr;
+    assign debug_led[1] = ^ID_instr;
     assign debug_led[2] = ^WB_data;
     assign debug_led[3] = ^MEM_data_mem_out;
-                                        
+
 endmodule
